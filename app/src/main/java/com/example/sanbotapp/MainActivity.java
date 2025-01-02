@@ -15,6 +15,7 @@ import android.widget.ImageView;
 import com.example.sanbotapp.robotControl.FaceRecognitionControl;
 import com.example.sanbotapp.robotControl.HardwareControl;
 import com.example.sanbotapp.robotControl.HeadControl;
+import com.example.sanbotapp.robotControl.MediaControlActivity;
 import com.example.sanbotapp.robotControl.SpeechControl;
 import com.example.sanbotapp.robotControl.SystemControl;
 import com.example.sanbotapp.robotControl.WheelControl;
@@ -46,7 +47,7 @@ public class MainActivity extends TopBaseActivity {
 
     Button ledOn, ledOff, headLeft, headRight,
             headUp, headDown, buttonSayHi, buttonWheelForward,
-            setEmotion, headCenter;
+            setEmotion, headCenter, media;
 
 
     @Override
@@ -86,6 +87,7 @@ public class MainActivity extends TopBaseActivity {
         buttonWheelForward = findViewById(R.id.buttonWheelForward);
         setEmotion = findViewById(R.id.setEmotion);
         headCenter = findViewById(R.id.headCenter);
+        media = findViewById(R.id.media);
 
         setonClicks();
 
@@ -93,6 +95,17 @@ public class MainActivity extends TopBaseActivity {
 
 
     public void setonClicks() {
+        media.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = null;
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
+                    intent = new Intent(MainActivity.this, MediaControlActivity.class);
+                }
+                startActivity(intent);
+            }
+        });
+
         setEmotion.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {

@@ -96,6 +96,14 @@
             android:layout_weight="1"
             android:text="See Sanbot's  mood" />
 
+        <Button
+            android:id="@+id/media"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:layout_weight="1"
+            android:text="Media" />
+
     </LinearLayout>
 
 </android.support.v7.widget.LinearLayoutCompat>
