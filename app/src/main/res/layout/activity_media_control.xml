@@ -1,41 +1,35 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
-    <LinearLayout
-        android:orientation="horizontal"
+    <!-- SurfaceView para mostrar la cámara -->
+    <!--<SurfaceView
+        android:id="@+id/sv_media"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-        <SurfaceView
-            android:id="@+id/sv_media"
-            android:layout_width="1280px"
-            android:layout_height="720px" />
+        android:layout_height="match_parent" />-->
 
-        <TextView
-            android:text="@string/face_info"
-            android:id="@+id/tv_face"
-            android:gravity="center"
-            android:padding="20px"
-            android:layout_width="match_parent"
-            android:layout_height="720px" />
-    </LinearLayout>
+    <TextureView
+        android:id="@+id/tv_media"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
+    <!-- ImageView para mostrar la captura -->
+    <ImageView
+        android:id="@+id/iv_screenshot"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitCenter"
+        android:visibility="gone" />
 
+    <!-- Botón de captura de imagen -->
     <Button
         android:id="@+id/tv_capture"
-        android:layout_width="300px"
-        android:layout_height="100px"
-        android:layout_marginTop="10px"
-        android:background="#bbbbbb"
-        android:gravity="center"
-        android:text="@string/capture"
-        android:onClick="onViewClicked"/>
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:background="@drawable/capture_button"
+        android:layout_gravity="center|bottom"
+        android:layout_marginBottom="32dp"
+        android:textColor="#FFFFFF"
+        android:text="Foto" />
 
-    <ImageView
-        android:id="@+id/iv_capture"
-        android:scaleType="fitCenter"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent" />
-</LinearLayout>
+</FrameLayout>

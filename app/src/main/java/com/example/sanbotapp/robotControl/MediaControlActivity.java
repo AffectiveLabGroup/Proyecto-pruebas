@@ -1,21 +1,31 @@
 package com.example.sanbotapp.robotControl;
 
+import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.SurfaceTexture;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
+import android.media.MediaScannerConnection;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.support.annotation.RequiresApi;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.TextureView;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.sanbotapp.R;
 import com.google.gson.Gson;
@@ -32,6 +42,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -45,17 +56,23 @@ import java.util.List;
  */
 
 @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
-public class MediaControlActivity extends TopBaseActivity implements SurfaceHolder.Callback {
+public class MediaControlActivity extends TopBaseActivity implements TextureView.SurfaceTextureListener {
 
     private final static String TAG = MediaControlActivity.class.getSimpleName();
 
     SurfaceView svMedia;
+    TextureView tvMedia;
     Button tvCapture;
     ImageView ivCapture;
     TextView tvFace;
 
+    private SurfaceTexture surfaceTexture;
+    private Surface surface;
+    private ImageView ivScreenshot;
+
     private MediaManager mediaManager;
     private SpeechManager speechManager;
+
 
     /**
      * 视频编解码器
@@ -77,26 +94,109 @@ public class MediaControlActivity extends TopBaseActivity implements SurfaceHold
         setContentView(R.layout.activity_media_control);
         //初始化变量
         mediaManager = (MediaManager) getUnitManager(FuncConstant.MEDIA_MANAGER);
-        svMedia = findViewById(R.id.sv_media);
+        //svMedia = findViewById(R.id.sv_media);
+        tvMedia = findViewById(R.id.tv_media);
         tvCapture = findViewById(R.id.tv_capture);
-        ivCapture = findViewById(R.id.iv_capture);
-        tvFace = findViewById(R.id.tv_face);
+        ivScreenshot = findViewById(R.id.iv_screenshot);
 
         // Añadimos el speechManager
         speechManager = (SpeechManager) getUnitManager(FuncConstant.SPEECH_MANAGER);
 
-        svMedia.getHolder().addCallback(this);
+        //svMedia.getHolder().addCallback(this);
+        // Set TextureView listener
+        tvMedia.setSurfaceTextureListener(this);
         initListener();
 
         // Capturar imagen
         tvCapture.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                onViewClicked();
+                //onViewClicked();
+                // Tomar captura de pantalla
+                //Bitmap screenshot = takeScreenshotFromSurfaceView(svMedia);
+                Bitmap screenshot = takeScreenshotFromTextureView(tvMedia);
+
+                if (screenshot != null) {
+                    // Mostrar la captura en el ImageView
+                    //ivScreenshot.setImageBitmap(screenshot);
+                    //ivScreenshot.setVisibility(View.VISIBLE);
+
+                    // Guardar captura en archivo
+                    saveScreenshot(MediaControlActivity.this, screenshot);
+
+                    // Mostrar mensaje
+                    Toast.makeText(MediaControlActivity.this, "Captura mostrada y guardada", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MediaControlActivity.this, "Error al capturar la imagen", Toast.LENGTH_SHORT).show();
+                }
+
             }
         });
 
     }
+
+    public Bitmap takeScreenshotFromTextureView(TextureView textureView) {
+        if (textureView.isAvailable()) {
+            return textureView.getBitmap();
+        }
+        return null;
+    }
+
+    public Bitmap takeScreenshotFromSurfaceView(SurfaceView surfaceView) {
+        // Create a Bitmap based on the size of the SurfaceView
+        Bitmap bitmap = Bitmap.createBitmap(surfaceView.getWidth(), surfaceView.getHeight(), Bitmap.Config.ARGB_8888);
+
+        // Get the Canvas from the SurfaceView's holder
+        Canvas canvas = surfaceView.getHolder().lockCanvas();
+
+        // Check if the Canvas is valid
+        if (canvas != null) {
+            try {
+                // Copy the content of the Canvas to the Bitmap
+                bitmap = Bitmap.createBitmap(surfaceView.getWidth(), surfaceView.getHeight(), Bitmap.Config.ARGB_8888);
+                surfaceView.getHolder().getSurface().unlockCanvasAndPost(canvas);
+
+                // Create a new Canvas to draw the content into the Bitmap
+                Canvas bitmapCanvas = new Canvas(bitmap);
+                surfaceView.getHolder().getSurface().lockCanvas(null);
+
+                // Finally, draw the Canvas content to the Bitmap
+                bitmapCanvas.drawBitmap(bitmap, 0, 0, null);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return bitmap;
+    }
+
+
+
+
+    public void saveScreenshot(Context context, Bitmap bitmap) {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.DISPLAY_NAME, "screenshot_" + System.currentTimeMillis() + ".png");
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+
+        Uri uri = context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+
+        try {
+            if (uri != null) {
+                OutputStream outputStream = context.getContentResolver().openOutputStream(uri);
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+                if (outputStream != null) {
+                    outputStream.flush();
+                    outputStream.close();
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
 
     /**
      * 初始化监听器
@@ -167,11 +267,52 @@ public class MediaControlActivity extends TopBaseActivity implements SurfaceHold
         }
     }
 
+    // TextureView.SurfaceTextureListener methods
+    // TextureView.SurfaceTextureListener methods
+    @Override
+    public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+        this.surfaceTexture = surfaceTexture;
+        this.surface = new Surface(surfaceTexture);
+
+        // Configure stream options and open media stream
+        StreamOption streamOption = new StreamOption();
+        streamOption.setChannel(StreamOption.MAIN_STREAM);
+        streamOption.setDecodType(StreamOption.HARDWARE_DECODE);
+        streamOption.setJustIframe(false);
+        mediaManager.openStream(streamOption);
+
+        // Configure MediaCodec
+        startDecoding(this.surface);
+    }
+
+    @Override
+    public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {
+        // Handle size changes if necessary
+    }
+
+    @Override
+    public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
+        // Close media stream and stop decoding
+        mediaManager.closeStream();
+        stopDecoding();
+        if (surface != null) {
+            surface.release();
+        }
+        return true;
+    }
+
+    @Override
+    public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
+        // Called when the content of the TextureView is updated
+    }
+
+
     @Override
     protected void onMainServiceConnected() {
 
     }
 
+    /*
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         //设置参数并打开媒体流
@@ -194,7 +335,7 @@ public class MediaControlActivity extends TopBaseActivity implements SurfaceHold
         //关闭媒体流
         mediaManager.closeStream();
         stopDecoding();
-    }
+    }*/
 
     /**
      * 初始化视频编解码器
@@ -234,8 +375,9 @@ public class MediaControlActivity extends TopBaseActivity implements SurfaceHold
 
     // FUNCION QUE SE REALIZA EN EL ONCLICK DE CAPTURA, LO QUE SE VA A INTENTAR ES O QUE HAGA UNA FOTO O GRABE UN VÍDEO
     public void onViewClicked() {
-        storeImage(mediaManager.getVideoImage());
-        ivCapture.setImageBitmap(mediaManager.getVideoImage());
+        //storeImage(mediaManager.getVideoImage());
+        //ivCapture.setImageBitmap(mediaManager.getVideoImage());
+        saveScreenshot(MediaControlActivity.this, mediaManager.getVideoImage());
     }
 
     public void storeImage(Bitmap bitmap){
