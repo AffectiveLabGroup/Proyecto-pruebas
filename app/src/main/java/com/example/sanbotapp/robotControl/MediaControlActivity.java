@@ -24,6 +24,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -62,7 +63,9 @@ public class MediaControlActivity extends TopBaseActivity implements TextureView
 
     SurfaceView svMedia;
     TextureView tvMedia;
-    Button tvCapture;
+    Button tvCapture, btn_cancel, btn_aceptar;
+
+    LinearLayout llButtons;
     ImageView ivCapture;
     TextView tvFace;
 
@@ -72,6 +75,10 @@ public class MediaControlActivity extends TopBaseActivity implements TextureView
 
     private MediaManager mediaManager;
     private SpeechManager speechManager;
+
+    private Uri imageUri;
+    private String nombreActividad ="";
+    private long mRowId;
 
 
     /**
@@ -98,6 +105,9 @@ public class MediaControlActivity extends TopBaseActivity implements TextureView
         tvMedia = findViewById(R.id.tv_media);
         tvCapture = findViewById(R.id.tv_capture);
         ivScreenshot = findViewById(R.id.iv_screenshot);
+        btn_cancel = findViewById(R.id.btn_cancel);
+        btn_aceptar = findViewById(R.id.btn_aceptar);
+        llButtons = findViewById(R.id.ll_buttons);
 
         // Añadimos el speechManager
         speechManager = (SpeechManager) getUnitManager(FuncConstant.SPEECH_MANAGER);
@@ -106,6 +116,15 @@ public class MediaControlActivity extends TopBaseActivity implements TextureView
         // Set TextureView listener
         tvMedia.setSurfaceTextureListener(this);
         initListener();
+
+        // Obtener la URI de la imagen desde el intent
+        Intent intent = getIntent();
+        if (intent != null) {
+            nombreActividad = intent.getStringExtra("nombre_actividad");
+            mRowId = intent.getLongExtra("mRowId", -1);
+            System.out.println("mRowId inicio: " + mRowId);
+            System.out.println("nombreActividad: " + nombreActividad);
+        }
 
         // Capturar imagen
         tvCapture.setOnClickListener(new View.OnClickListener() {
@@ -118,8 +137,11 @@ public class MediaControlActivity extends TopBaseActivity implements TextureView
 
                 if (screenshot != null) {
                     // Mostrar la captura en el ImageView
-                    //ivScreenshot.setImageBitmap(screenshot);
-                    //ivScreenshot.setVisibility(View.VISIBLE);
+                    ivScreenshot.setImageBitmap(screenshot);
+                    ivScreenshot.setVisibility(View.VISIBLE);
+                    tvCapture.setVisibility(View.GONE);
+                    llButtons.setVisibility(View.VISIBLE);
+
 
                     // Guardar captura en archivo
                     saveScreenshot(MediaControlActivity.this, screenshot);
@@ -133,7 +155,35 @@ public class MediaControlActivity extends TopBaseActivity implements TextureView
             }
         });
 
+        btn_cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ivScreenshot.setVisibility(View.GONE);
+                tvCapture.setVisibility(View.VISIBLE);
+                llButtons.setVisibility(View.GONE);
+
+            }
+        });
+
+        btn_aceptar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                Intent intent = new Intent();
+                intent.setClassName("com.example.lineatemporal", "com.example.sanbotapp."+ nombreActividad);
+                intent.putExtra("screenshot_uri", imageUri.toString());
+                intent.putExtra("mRowId final", mRowId);
+                System.out.println("mRowId final: " + mRowId);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivity(intent);
+
+                // Close the activity
+                finish();
+            }
+        });
+
     }
+
 
     public Bitmap takeScreenshotFromTextureView(TextureView textureView) {
         if (textureView.isAvailable()) {
@@ -180,6 +230,8 @@ public class MediaControlActivity extends TopBaseActivity implements TextureView
         values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
 
         Uri uri = context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+
+        imageUri = uri;
 
         try {
             if (uri != null) {
