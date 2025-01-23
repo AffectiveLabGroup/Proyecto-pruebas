@@ -1,9 +1,12 @@
 package com.example.sanbotapp.robotControl;
 
+import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.SurfaceTexture;
 import android.media.MediaCodec;
@@ -15,6 +18,9 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.annotation.RequiresApi;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.util.Base64;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -39,13 +45,23 @@ import com.qihancloud.opensdk.function.unit.SpeechManager;
 import com.qihancloud.opensdk.function.unit.interfaces.media.FaceRecognizeListener;
 import com.qihancloud.opensdk.function.unit.interfaces.media.MediaStreamListener;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * className: MediaControlActivity
@@ -112,6 +128,8 @@ public class MediaControlActivity extends TopBaseActivity implements TextureView
         // Añadimos el speechManager
         speechManager = (SpeechManager) getUnitManager(FuncConstant.SPEECH_MANAGER);
 
+        checkPermissions();
+
         //svMedia.getHolder().addCallback(this);
         // Set TextureView listener
         tvMedia.setSurfaceTextureListener(this);
@@ -169,19 +187,230 @@ public class MediaControlActivity extends TopBaseActivity implements TextureView
             @Override
             public void onClick(View v) {
 
-                Intent intent = new Intent();
-                intent.setClassName("com.example.lineatemporal", "com.example.sanbotapp."+ nombreActividad);
-                intent.putExtra("screenshot_uri", imageUri.toString());
-                intent.putExtra("mRowId final", mRowId);
-                System.out.println("mRowId final: " + mRowId);
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                startActivity(intent);
+                /*if(!Objects.equals(nombreActividad, "")){
 
-                // Close the activity
-                finish();
+                    Intent intent = new Intent();
+                    intent.setClassName("com.example.lineatemporal", "com.example.sanbotapp."+ nombreActividad);
+                    intent.putExtra("screenshot_uri", imageUri.toString());
+                    intent.putExtra("mRowId final", mRowId);
+                    System.out.println("mRowId final: " + mRowId);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(intent);
+
+                } else{*/
+                    // TODO: HACER UN POST A LA URL
+                    // Convierte la imagen a Base64
+                    String base64Image = encodeImageToBase64(imageUri);
+
+                    if (base64Image != null) {
+                        // Enviar la imagen al servidor
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                sendImageToServer(base64Image);
+
+                            }
+                        }).start();
+
+                        Toast.makeText(MediaControlActivity.this, "Captura mostrada y guardada", Toast.LENGTH_SHORT).show();
+                    }
+
+
+
+
+               // }
+
             }
         });
 
+    }
+
+    private void checkPermissions() {
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, 0);
+        }
+    }
+
+    public String encodeImageToBase64(Uri imageUri) {
+        try {
+
+            // Redimensiona la imagen antes de codificarla
+            Bitmap resizedBitmap = resizeImage(imageUri, 800, 600); // Ejemplo: máximo 800x600 píxeles
+
+            if (resizedBitmap == null) {
+                System.out.println("Error al redimensionar la imagen.");
+                return null;
+            }
+
+            // Convierte el Bitmap a un array de bytes
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            resizedBitmap.compress(Bitmap.CompressFormat.PNG, 80, byteArrayOutputStream); // Compresión a calidad 80%
+            byte[] imageBytes = byteArrayOutputStream.toByteArray();
+
+            // Codifica los bytes de la imagen en Base64
+            String base64String = Base64.encodeToString(imageBytes, Base64.NO_WRAP); // Evita saltos de línea
+
+            System.out.println("Base64: " + base64String);
+
+            base64String = base64String.trim(); // Elimina espacios en blanco alrededor
+            base64String = base64String.replace("\n", "").replace("\r", ""); // Elimina saltos de línea
+
+            // Validar que la longitud sea múltiplo de 4
+            int remainder = base64String.length() % 4;
+            if (remainder != 0) {
+                int padding = 4 - remainder; // Calcula el relleno necesario
+                for (int i = 0; i < padding; i++) {
+                    base64String += "="; // Añade '=' al final de la cadena
+                }
+            }
+
+            System.out.println("Base64 ESTAAA: " + base64String);
+
+            return base64String;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+
+
+    public String encodeImageToBase64A(Uri imageUri) {
+        try {
+            ContentResolver contentResolver = getContentResolver();
+            InputStream inputStream = contentResolver.openInputStream(imageUri); // Abre la URI como InputStream
+
+            System.out.println("URI: " + imageUri);
+            if (inputStream == null) {
+                System.out.println("No se pudo abrir el InputStream de la URI.");
+                return null;
+            }
+
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = inputStream.read(buffer)) != -1) {
+                byteArrayOutputStream.write(buffer, 0, length);
+            }
+            inputStream.close();
+
+            // Codifica los bytes de la imagen en Base64
+            byte[] imageBytes = byteArrayOutputStream.toByteArray();
+            String base64String = Base64.encodeToString(imageBytes, Base64.NO_WRAP); // Evita saltos de línea
+
+            System.out.println("base64: " + base64String);
+
+            // Asegúrate de que no existan caracteres no válidos en la cadena Base64
+            base64String = base64String.trim(); // Elimina espacios en blanco alrededor
+            base64String = base64String.replace("\n", "").replace("\r", ""); // Elimina saltos de línea
+
+            // Validar que la longitud sea múltiplo de 4
+            int remainder = base64String.length() % 4;
+            if (remainder != 0) {
+                int padding = 4 - remainder; // Calcula el relleno necesario
+                for (int i = 0; i < padding; i++) {
+                    base64String += "="; // Añade '=' al final de la cadena
+                }
+            }
+
+            System.out.println("segundo base64: " + base64String);
+            return base64String;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+
+
+    public void sendImageToServer(String base64Image) {
+        try {
+
+            // URL de destino
+            URL url = new URL("http://155.210.155.206:8080/sendImage?task=expression&method=VGG19&mode=text");
+
+            // Abrir la conexión HTTP
+            HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+            urlConnection.setRequestMethod("POST");
+            urlConnection.setRequestProperty("Content-Type", "application/json");
+            urlConnection.setDoOutput(true);
+
+            // Crear el cuerpo de la solicitud
+            DataOutputStream os = new DataOutputStream(urlConnection.getOutputStream());
+            os.write(base64Image.getBytes()); // Escribir los bytes decodificados
+            os.flush();
+            os.close();
+
+            System.out.println("dataoutputstring: " + os);
+            System.out.println("url: " + url);
+
+
+
+            // Leer la respuesta
+            int code = urlConnection.getResponseCode();
+            if (code == HttpURLConnection.HTTP_OK) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+
+                System.out.println("Respuesta del servidor: " + response);
+            } else {
+                // Manejar errores
+                Log.e("MyTag", "Error: " + urlConnection.getResponseMessage());
+            }
+
+            urlConnection.disconnect();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public Bitmap resizeImage(Uri imageUri, int maxWidth, int maxHeight) {
+        try {
+            // Obtén el ContentResolver y abre el InputStream de la imagen
+            ContentResolver contentResolver = getContentResolver();
+            InputStream inputStream = contentResolver.openInputStream(imageUri);
+
+            // Decodifica la imagen en un Bitmap para obtener su tamaño original
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true; // Sólo obtiene las dimensiones de la imagen, no la carga completamente
+            BitmapFactory.decodeStream(inputStream, null, options);
+
+            // Calcula el factor de escala para redimensionar la imagen
+            int width = options.outWidth;
+            int height = options.outHeight;
+            int scaleFactor = 1;
+
+            // Si la imagen es más grande que las dimensiones máximas, calcula el factor de escala
+            if (width > maxWidth || height > maxHeight) {
+                int widthRatio = Math.round((float) width / (float) maxWidth);
+                int heightRatio = Math.round((float) height / (float) maxHeight);
+                scaleFactor = Math.max(widthRatio, heightRatio);
+            }
+
+            // Ahora decodifica la imagen real con el factor de escala
+            options.inJustDecodeBounds = false;
+            options.inSampleSize = scaleFactor; // Utiliza el factor de escala
+            inputStream.close(); // Cierra el inputStream anterior
+
+            inputStream = contentResolver.openInputStream(imageUri); // Vuelve a abrir el InputStream
+            Bitmap resizedBitmap = BitmapFactory.decodeStream(inputStream, null, options);
+
+            // Cierra el inputStream
+            inputStream.close();
+
+            return resizedBitmap;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
 
