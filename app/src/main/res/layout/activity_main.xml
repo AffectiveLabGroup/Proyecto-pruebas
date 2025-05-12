@@ -106,4 +106,27 @@
 
     </LinearLayout>
 
+
+    <EditText
+        android:id="@+id/messageEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:padding="16dp"
+        android:hint="Escribe tu mensaje"
+        android:inputType="text" />
+
+    <Button
+        android:id="@+id/sendButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Enviar mensaje" />
+
+    <TextView
+        android:id="@+id/receivedMessageTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Mensajes recibidos..."
+        android:paddingTop="20dp" />
+
 </android.support.v7.widget.LinearLayoutCompat>

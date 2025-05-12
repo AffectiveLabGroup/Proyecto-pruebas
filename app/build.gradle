@@ -4,7 +4,7 @@ android {
     compileSdkVersion 34
     defaultConfig {
         applicationId "com.example.pruebas"
-        minSdkVersion 19
+        minSdkVersion 23
         targetSdkVersion 22
         versionCode 1
         versionName "1.0"
@@ -41,6 +41,12 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+
+
+    implementation('io.socket:socket.io-client:2.1.0') {
+        exclude group: 'org.json', module: 'json'
+    }
+
 
     //implementation(name: 'QihanOpenSdk_1.1.8.0', ext: 'aar')
     //compile(name: 'SanbotOpenSDK_2.0.1.0', ext: 'aar')

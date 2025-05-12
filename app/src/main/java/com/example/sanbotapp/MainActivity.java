@@ -4,6 +4,7 @@ package com.example.sanbotapp;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -11,6 +12,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.example.sanbotapp.robotControl.FaceRecognitionControl;
 import com.example.sanbotapp.robotControl.HardwareControl;
@@ -30,6 +32,14 @@ import com.qihancloud.opensdk.function.unit.SpeechManager;
 import com.qihancloud.opensdk.function.unit.SystemManager;
 import com.qihancloud.opensdk.function.unit.WheelMotionManager;
 
+import org.json.JSONObject;
+
+import java.net.URISyntaxException;
+
+import io.socket.client.IO;
+import io.socket.client.Socket;
+import io.socket.emitter.Emitter;
+
 public class MainActivity extends TopBaseActivity {
 
     private SpeechControl speechControl;
@@ -48,6 +58,21 @@ public class MainActivity extends TopBaseActivity {
     Button ledOn, ledOff, headLeft, headRight,
             headUp, headDown, buttonSayHi, buttonWheelForward,
             setEmotion, headCenter, media;
+    private Socket mSocket;
+
+    {
+        try {
+            IO.Options opts = new IO.Options();
+            opts.transports = new String[] {"websocket"}; // Solo WebSocket
+            mSocket = IO.socket("http://robot-server-flask.onrender.com", opts);
+
+        } catch (URISyntaxException e) {
+            System.out.println("Error al crear el socket");
+            e.printStackTrace();
+        }
+    }
+
+
 
 
     @Override
@@ -91,6 +116,59 @@ public class MainActivity extends TopBaseActivity {
 
         setonClicks();
 
+        mSocket.connect();
+
+        socketFunctions("b", "Hola A! soy b");
+    }
+
+    public void socketFunctions(String robot, String message){
+
+        mSocket.on("receive_message", new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                JSONObject data = (JSONObject) args[0];
+                String robotm = data.optString("robot");
+                String message = data.optString("message");
+
+                if (robot.equals(robotm)) {// solo mostramos si el mensaje es para A
+                    Log.i("Socket", "Mensaje recibido para" + robotm + ": " + message);
+
+                    speechControl.hablar("He recibido un mensaje de " + robotm + ": " + message);
+                }
+            }
+        });
+
+        // Pedir mensaje pendiente
+        /*JSONObject pedir = new JSONObject();
+        try {
+            pedir.put("robot", "b");
+            mSocket.emit("request_message", pedir);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }*/
+
+        Button btnEnviar = findViewById(R.id.sendButton);
+        btnEnviar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                JSONObject enviar = new JSONObject();
+                try {
+                    enviar.put("robot", robot);
+                    enviar.put("message", message);  // o desde B si es ese robot
+                    mSocket.emit("send_message", enviar);
+                    Log.i("Socket", "Mensaje enviado");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
     }
 
 
