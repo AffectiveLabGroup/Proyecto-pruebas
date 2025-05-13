@@ -169,6 +169,8 @@ public class MainActivity extends TopBaseActivity {
     @Override
     public void onDestroy() {
         super.onDestroy();
+
+        mSocket.disconnect();
     }
 
 
