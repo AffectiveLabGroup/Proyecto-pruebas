@@ -7,6 +7,8 @@
     android:orientation="vertical"
     tools:context=".MainActivity">
 
+
+
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -128,5 +130,41 @@
         android:layout_height="wrap_content"
         android:text="Mensajes recibidos..."
         android:paddingTop="20dp" />
+
+
+
+
+    <Button
+        android:id="@+id/escuchar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Escuchar" />
+
+    <TextView
+        android:id="@+id/textoreconocido"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Texto reconocido..."
+        android:paddingTop="20dp" />
+
+
+    <Button
+        android:id="@+id/decirfrase"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Decir frase" />
+
+    <Button
+        android:id="@+id/wav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="ESCUCHA WAV" />
+
+    <TextureView
+        android:id="@+id/tv_media"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"/>
+
 
 </android.support.v7.widget.LinearLayoutCompat>

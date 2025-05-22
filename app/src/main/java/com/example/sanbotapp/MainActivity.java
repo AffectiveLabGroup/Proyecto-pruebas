@@ -4,7 +4,9 @@ package com.example.sanbotapp;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+import android.view.TextureView;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -14,6 +16,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.example.sanbotapp.moduloReactivo.RecognitionControl;
 import com.example.sanbotapp.robotControl.FaceRecognitionControl;
 import com.example.sanbotapp.robotControl.HardwareControl;
 import com.example.sanbotapp.robotControl.HeadControl;
@@ -54,10 +57,16 @@ public class MainActivity extends TopBaseActivity {
     private WheelMotionManager wheelMotionManager;
     private HardWareManager hardWareManager;
     private HardwareControl hardwareControl;
+    private TextView textoreconocido;
+    private RecognitionControl recognitionControl;
+
+    TextureView tvMedia;
+
+    private Handler handler = new Handler(Looper.getMainLooper());
 
     Button ledOn, ledOff, headLeft, headRight,
             headUp, headDown, buttonSayHi, buttonWheelForward,
-            setEmotion, headCenter, media;
+            setEmotion, headCenter, media, escuchar, decirfrase, escuchawav;
     private Socket mSocket;
 
     {
@@ -113,8 +122,41 @@ public class MainActivity extends TopBaseActivity {
         setEmotion = findViewById(R.id.setEmotion);
         headCenter = findViewById(R.id.headCenter);
         media = findViewById(R.id.media);
+        escuchar = findViewById(R.id.escuchar);
+        textoreconocido = findViewById(R.id.textoreconocido);
+        decirfrase = findViewById(R.id.decirfrase);
+        tvMedia = findViewById(R.id.tv_media);
+        escuchawav = findViewById(R.id.wav);
+
+        recognitionControl = new RecognitionControl(speechManager, mediaManager, tvMedia, this);
 
         setonClicks();
+
+        escuchar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new Thread(new Runnable() {
+                    public void run(){
+                        speechControl.modoEscucha();
+
+                    }
+                }).start();
+            }
+        });
+
+        decirfrase.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                speechControl.hablar("Hola, soy Sanbot, ¿cómo estás?");
+            }
+        });
+
+        escuchawav.setOnClickListener(new View.OnClickListener() {
+              @Override
+              public void onClick(View v) {
+                  recognitionControl.audiowav();
+              }
+        });
 
         mSocket.connect();
 
@@ -162,6 +204,9 @@ public class MainActivity extends TopBaseActivity {
                 }
             }
         });
+
+
+
 
 
     }
@@ -241,12 +286,7 @@ public class MainActivity extends TopBaseActivity {
                 speechControl.hablar("Hola, soy Sanbot, ¿cómo estás?");
             }
         });
-        buttonWheelForward.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                wheelControl.controlBasicoRuedas(WheelControl.AccionesRuedas.GIRAR);
-            }
-        });
+
 
     }
 

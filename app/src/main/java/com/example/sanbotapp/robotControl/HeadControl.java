@@ -59,6 +59,19 @@ public class HeadControl {
         return true;
     }
 
+    public boolean girarCabeza(int angle) {
+        AbsoluteAngleHeadMotion absoluteAngleHeadMotion = new AbsoluteAngleHeadMotion(AbsoluteAngleHeadMotion.ACTION_HORIZONTAL,angle);
+        headMotionManager.doAbsoluteAngleMotion(absoluteAngleHeadMotion);
+
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        return true;
+    }
+
     // Función para poner la cabeza en su posición original, en este caso: en el centro
     public boolean reiniciar(){
         controlBasicoCabeza(AccionesCabeza.CENTRO);

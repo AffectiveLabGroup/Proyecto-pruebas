@@ -1,5 +1,7 @@
 package com.example.sanbotapp.robotControl;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.example.sanbotapp.R;
@@ -19,6 +21,13 @@ public class SpeechControl {
     private static SpeakOption speakOption = new SpeakOption();
     private String cadenaReconocida;
     private boolean finHabla = false;
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private boolean escuchando = false;
+    private long ultimoVolumenTimestamp = 0;
+
+    private static final int SILENCIO_MAX_MS = 5000;
 
     // Constructor
     public SpeechControl(SpeechManager speechManager){
@@ -175,6 +184,80 @@ public class SpeechControl {
 
     }
 
+
+
+    public void iniciar() {
+        escuchando = true;
+        iniciarEscucha();
+    }
+
+    public void detener() {
+        escuchando = false;
+        handler.removeCallbacksAndMessages(null);
+    }
+
+    private void iniciarEscucha() {
+        if (!escuchando) return;
+
+        Log.i("EscuchaPersistente", "Activando escucha...");
+        speechManager.doWakeUp();
+
+        final boolean[] recibido = {false};
+
+        // Marca de silencio inicial
+        ultimoVolumenTimestamp = System.currentTimeMillis();
+
+        speechManager.setOnSpeechListener(new RecognizeListener() {
+            @Override
+            public boolean onRecognizeResult(Grammar grammar) {
+                recibido[0] = true;
+                String texto = grammar.getText();
+                Log.i("EscuchaPersistente", "Texto reconocido: " + texto);
+
+                procesarTexto(texto);
+
+                // Reiniciar escucha tras pequeña pausa
+                handler.postDelayed(() -> iniciarEscucha(), 1000);
+                return true;
+            }
+
+            @Override
+            public void onRecognizeVolume(int volume) {
+                if (volume > 3) { // sensibilidad ajustable
+                    ultimoVolumenTimestamp = System.currentTimeMillis();
+                }
+            }
+        });
+
+        // Verifica silencio prolongado para reactivar escucha
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!recibido[0]) {
+                    long ahora = System.currentTimeMillis();
+                    long sinVozMs = ahora - ultimoVolumenTimestamp;
+
+                    if (sinVozMs >= SILENCIO_MAX_MS) {
+                        Log.w("EscuchaPersistente", "Silencio prolongado detectado. Reactivando escucha.");
+                        iniciarEscucha(); // solo reinicia si hubo silencio
+                    } else {
+                        // Aún hay voz, reintenta este chequeo más tarde
+                        handler.postDelayed(this, 1000);
+                    }
+                }
+            }
+        }, SILENCIO_MAX_MS);
+    }
+
+    private void procesarTexto(String texto) {
+        if (texto.contains("hola")) {
+            speechManager.startSpeak("Hola, ¿cómo estás?");
+        } else if (texto.contains("adiós")) {
+            detener();
+            speechManager.startSpeak("Hasta luego.");
+            speechManager.doSleep();
+        }
+    }
 
 
 }
