@@ -134,21 +134,13 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
                             audioBuffer.reset(); // vacía para siguiente chunk
                             lastSaveTime = now;
 
-                            // Guardar a archivo WAV
-                            File wavFile = new File(context.getExternalFilesDir(null),
-                                    "audio_" + (audioFileCounter++) + ".wav");
+                            int sampleRate = 8000; // o el que uses realmente
+                            int channels = 1; // mono
+                            int bitsPerSample = 16;
 
+                            byte[] fullWavData = generateWavFile(audioChunk, sampleRate, channels, bitsPerSample);
+                            uploadWavToAzure(fullWavData, "audio_" + System.currentTimeMillis() + ".wav");
 
-
-                            try {
-                                uploadWavToAzure(audioChunk, "audio_" + System.currentTimeMillis() + ".wav");
-                                saveAsWavFile(audioChunk, wavFile, SAMPLE_RATE, CHANNELS, BITS_PER_SAMPLE);
-                                Log.d("AudioDebug", "✅ Archivo guardado: " + wavFile.getAbsolutePath());
-
-
-                            } catch (IOException e) {
-                                Log.e("AudioDebug", "❌ Error guardando WAV: " + e.getMessage());
-                            }
                         }
                     }
                 }).start();
@@ -168,14 +160,6 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
                 if (bytes == null || bytes.length == 0) {
                     Log.e("AudioDebug", "❌ audioData está vacío o es nulo.");
                     return;
-                }
-
-                try {
-                    File wavFile = new File(context.getExternalFilesDir(null), "audio_detectado.wav");
-                    saveAsWavFile(bytes, wavFile, 16000, 1, 16);  // Ajusta sampleRate/canales según tu fuente
-                    Log.d("AudioDebug", "✅ Archivo WAV guardado en: " + wavFile.getAbsolutePath());
-                } catch (IOException e) {
-                    Log.e("AudioDebug", "❌ Error guardando WAV: " + e.getMessage());
                 }
 
                 // Procesar el audio en un hilo en segundo plano
@@ -206,25 +190,6 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
     }
 
     // Pruebaaaaaa----------------------
-    private void saveWavToMusicFolder(byte[] wavData, String fileName, Context context) {
-        ContentValues values = new ContentValues();
-        values.put(MediaStore.Audio.Media.DISPLAY_NAME, fileName);
-        values.put(MediaStore.Audio.Media.MIME_TYPE, "audio/wav");
-        values.put(MediaStore.Audio.Media.IS_MUSIC, 1);
-        values.put(MediaStore.Audio.Media.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/MiApp");
-
-        Uri uri = context.getContentResolver().insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
-        if (uri != null) {
-            try (OutputStream out = context.getContentResolver().openOutputStream(uri)) {
-                out.write(wavData);
-                Log.d("AudioDebug", "✅ Guardado en Música/MiApp: " + uri.toString());
-            } catch (IOException e) {
-                Log.e("AudioDebug", "❌ Error escribiendo WAV: " + e.getMessage());
-            }
-        } else {
-            Log.e("AudioDebug", "❌ No se pudo crear URI para guardar audio.");
-        }
-    }
 
     public void uploadWavToAzure(byte[] wavData, String fileName) {
         new Thread(() -> {
@@ -250,7 +215,7 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
     }
 
     private static HttpURLConnection getHttpURLConnection(byte[] wavData, String nombre) throws IOException {
-        URL url = new URL("https://guardarcanciones.blob.core.windows.net/musica/"+ nombre +"?sp=racwdli&st=2025-05-22T11:32:08Z&se=2025-05-22T19:32:08Z&sv=2024-11-04&sr=c&sig=hTW8%2FYziIwZ%2FMhFDzXmpuOAe5OuSgWk%2B%2BBCfM%2Fv5FIY%3D"); // debe ser completo, incluyendo ?sig=...
+        URL url = new URL("https://guardarcanciones.blob.core.windows.net/musica/"+ nombre +"?sp=racw&st=2025-05-26T10:45:51Z&se=2025-05-26T18:45:51Z&spr=https&sv=2024-11-04&sr=c&sig=dftf2rX2u3zz3dFFrC8%2BrCD4txCSt8gE7r2vyP8067U%3D"); // debe ser completo, incluyendo ?sig=...
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
         connection.setDoOutput(true);
@@ -260,6 +225,57 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
         connection.setFixedLengthStreamingMode(wavData.length);
         return connection;
     }
+
+    public static byte[] generateWavFile(byte[] rawAudioData, int sampleRate, int channels, int bitsPerSample) {
+        int byteRate = sampleRate * channels * bitsPerSample / 8;
+        int totalDataLen = rawAudioData.length + 36;
+        int totalLen = rawAudioData.length + 44;
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try {
+            // RIFF header
+            out.write(new byte[] {'R', 'I', 'F', 'F'});
+            out.write(intToLittleEndian(totalDataLen));
+            out.write(new byte[] {'W', 'A', 'V', 'E'});
+
+            // fmt subchunk
+            out.write(new byte[] {'f', 'm', 't', ' '});
+            out.write(intToLittleEndian(16)); // Subchunk1Size (16 for PCM)
+            out.write(shortToLittleEndian((short) 1)); // Audio format (1 = PCM)
+            out.write(shortToLittleEndian((short) channels)); // Channels
+            out.write(intToLittleEndian(sampleRate)); // SampleRate
+            out.write(intToLittleEndian(byteRate)); // ByteRate
+            out.write(shortToLittleEndian((short) (channels * bitsPerSample / 8))); // BlockAlign
+            out.write(shortToLittleEndian((short) bitsPerSample)); // BitsPerSample
+
+            // data subchunk
+            out.write(new byte[] {'d', 'a', 't', 'a'});
+            out.write(intToLittleEndian(rawAudioData.length));
+            out.write(rawAudioData);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return out.toByteArray();
+    }
+
+    private static byte[] intToLittleEndian(int value) {
+        return new byte[] {
+                (byte)(value),
+                (byte)(value >> 8),
+                (byte)(value >> 16),
+                (byte)(value >> 24)
+        };
+    }
+
+    private static byte[] shortToLittleEndian(short value) {
+        return new byte[] {
+                (byte)(value),
+                (byte)(value >> 8)
+        };
+    }
+
 
 
     /***********************************************************************************************
