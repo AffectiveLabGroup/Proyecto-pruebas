@@ -59,6 +59,7 @@ public class MainActivity extends TopBaseActivity {
     private HardwareControl hardwareControl;
     private TextView textoreconocido;
     private RecognitionControl recognitionControl;
+    private VoskRecognition voskRecognition;
 
     TextureView tvMedia;
 
@@ -127,8 +128,12 @@ public class MainActivity extends TopBaseActivity {
         decirfrase = findViewById(R.id.decirfrase);
         tvMedia = findViewById(R.id.tv_media);
         escuchawav = findViewById(R.id.wav);
+        voskRecognition = new VoskRecognition();
 
-        recognitionControl = new RecognitionControl(speechManager, mediaManager, tvMedia, this);
+
+        recognitionControl = new RecognitionControl(speechManager, mediaManager, tvMedia, this, voskRecognition);
+        recognitionControl.startDeteccionIsSpeaking();
+
 
         setonClicks();
 
@@ -137,7 +142,8 @@ public class MainActivity extends TopBaseActivity {
             public void onClick(View v) {
                 new Thread(new Runnable() {
                     public void run(){
-                        speechControl.modoEscucha();
+                        //speechControl.modoEscucha();
+                        speechControl.iniciar();
 
                     }
                 }).start();
@@ -154,13 +160,34 @@ public class MainActivity extends TopBaseActivity {
         escuchawav.setOnClickListener(new View.OnClickListener() {
               @Override
               public void onClick(View v) {
-                  recognitionControl.audiowav();
+                  //recognitionControl.audiowav();
+                  //voskRecognition.stopRecognition();
+                  speechControl.detener();
+
               }
         });
 
         mSocket.connect();
 
         socketFunctions("b", "Hola A! soy b");
+
+        voskRecognition.startRecognition(this, new VoskRecognition.VoskListener() {
+            @Override
+            public void onResult(String result) {
+                Log.d("VOSK", "✅ Resultado final: " + result);
+            }
+
+            @Override
+            public void onPartialResult(String partial) {
+                Log.d("VOSK", "🟡 Parcial: " + partial);
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e("VOSK", "❌ Error: " + error);
+            }
+        });
+
     }
 
     public void socketFunctions(String robot, String message){
@@ -204,10 +231,6 @@ public class MainActivity extends TopBaseActivity {
                 }
             }
         });
-
-
-
-
 
     }
 

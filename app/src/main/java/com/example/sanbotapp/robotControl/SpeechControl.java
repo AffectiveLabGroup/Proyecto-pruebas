@@ -27,7 +27,7 @@ public class SpeechControl {
     private boolean escuchando = false;
     private long ultimoVolumenTimestamp = 0;
 
-    private static final int SILENCIO_MAX_MS = 5000;
+    private static final int SILENCIO_MAX_MS = 20000;
 
     // Constructor
     public SpeechControl(SpeechManager speechManager){
@@ -192,12 +192,16 @@ public class SpeechControl {
     }
 
     public void detener() {
+        Log.i("EscuchaPersistente", "Deteniendo escucha...");
         escuchando = false;
         handler.removeCallbacksAndMessages(null);
     }
 
     private void iniciarEscucha() {
-        if (!escuchando) return;
+        if (!escuchando){
+            Log.i ("EscuchaPersistente", "No está escuchando -- Escucha detenida");
+            return;
+        }
 
         Log.i("EscuchaPersistente", "Activando escucha...");
         speechManager.doWakeUp();

@@ -3,14 +3,15 @@ apply plugin: 'com.android.application'
 android {
     compileSdkVersion 34
     defaultConfig {
-        applicationId "com.example.pruebas"
+        applicationId "com.example.pruebas2"
         minSdkVersion 23
         targetSdkVersion 22
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         ndk {
-            abiFilters "armeabi"
+            //noinspection ChromeOsAbiSupport
+            abiFilters "armeabi-v7a"
         }
     }
     buildTypes {
@@ -20,6 +21,7 @@ android {
         }
         sourceSets.main {
             jniLibs.srcDir 'libs'
+            assets.srcDirs = ['src/main/assets']
         }
     }
 }
@@ -41,6 +43,9 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+
+    implementation 'net.java.dev.jna:jna:5.13.0@aar'
+    implementation 'com.alphacephei:vosk-android:0.3.47@aar'
 
 
     implementation('io.socket:socket.io-client:2.1.0') {

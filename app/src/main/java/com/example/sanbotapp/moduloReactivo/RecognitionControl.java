@@ -22,6 +22,7 @@ import android.util.Log;
 import android.view.Surface;
 import android.view.TextureView;
 
+import com.example.sanbotapp.VoskRecognition;
 import com.example.sanbotapp.robotControl.SpeechControl;
 import com.qihancloud.opensdk.function.beans.StreamOption;
 import com.qihancloud.opensdk.function.unit.MediaManager;
@@ -64,7 +65,9 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
     private final Handler backgroundHandler = new Handler(Looper.getMainLooper());
 
     private long inicioRuidoAlto = 0;
+    private long inicioSilencio = 0;
     private boolean ruidoActivo = false;
+    private boolean silencioActivo = false;
     private static final int TIEMPO_UMBRAL_MS = 1000;
     private ResultadoReconocimiento resultadoReconocimiento = new ResultadoReconocimiento();
 
@@ -77,12 +80,15 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
     private final int BITS_PER_SAMPLE = 16;
     private final int SAVE_INTERVAL_MS = 5000; // 5 segundos
 
+    private VoskRecognition voskRecognition;
 
 
-    public RecognitionControl(SpeechManager speechManager, MediaManager mediaManager, TextureView tvMedia, Context context){
+
+    public RecognitionControl(SpeechManager speechManager, MediaManager mediaManager, TextureView tvMedia, Context context, VoskRecognition voskRecognition){
         this.mediaManager = mediaManager;
         this.speechControl = new SpeechControl(speechManager);
         this.context = context;
+        this.voskRecognition = voskRecognition;
         this.tvMedia = tvMedia;
         this.tvMedia.setSurfaceTextureListener(this);
         initListener();
@@ -141,6 +147,13 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
                             byte[] fullWavData = generateWavFile(audioChunk, sampleRate, channels, bitsPerSample);
                             uploadWavToAzure(fullWavData, "audio_" + System.currentTimeMillis() + ".wav");
 
+                            /*try {
+                                String resultado = VoskRecognition.reconocer(context, audioChunk);
+                                Log.d("VOSK", "Texto: " + resultado);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }*/
+
                         }
                     }
                 }).start();
@@ -184,6 +197,50 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
                     } else {
                         ruidoActivo = false;
                     }
+                }).start();
+            }
+        });
+    }
+
+    public void startDeteccionIsSpeaking() {
+        mediaManager.setMediaListener(new MediaStreamListener() {
+            @Override
+            public void getVideoStream(byte[] bytes) {
+                backgroundHandler.post(() -> showViewData(ByteBuffer.wrap(bytes))); // Mueve a otro hilo
+            }
+
+            @Override
+            public void getAudioStream(byte[] bytes) {
+
+                if (bytes == null || bytes.length == 0) {
+                    Log.e("AudioDebug", "❌ audioData está vacío o es nulo.");
+                    return;
+                }
+
+                // Procesar el audio en un hilo en segundo plano
+                new Thread(() -> {
+                    float[] floatSamples = convertBytesToFloat(bytes);
+                    float rms = calculateRMS(floatSamples);
+                    float decibels = calculateDecibels(rms);
+                    float calibratedDecibels = decibels + 90;
+
+                    Log.d("Audio", "🔊 Decibeles detectados: " + calibratedDecibels + " dB");
+
+                    if (calibratedDecibels < 60) {
+                        if (!silencioActivo) {
+                            inicioSilencio = System.currentTimeMillis();
+                            silencioActivo = true;
+                        }
+
+                        if (System.currentTimeMillis() - inicioSilencio >= TIEMPO_UMBRAL_MS) {
+                            Log.d("Audio", "SILENCIO DETECTADO");
+                            speechControl.detener();
+                            silencioActivo = false;
+                        }
+                    } else {
+                        silencioActivo = false;
+                    }
+
                 }).start();
             }
         });
