@@ -160,7 +160,7 @@ public class MainActivity extends TopBaseActivity {
         escuchawav.setOnClickListener(new View.OnClickListener() {
               @Override
               public void onClick(View v) {
-                  //recognitionControl.audiowav();
+                  recognitionControl.audiowav();
                   //voskRecognition.stopRecognition();
                   speechControl.detener();
 

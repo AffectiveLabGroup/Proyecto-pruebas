@@ -35,6 +35,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -145,7 +146,7 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
                             int bitsPerSample = 16;
 
                             byte[] fullWavData = generateWavFile(audioChunk, sampleRate, channels, bitsPerSample);
-                            uploadWavToAzure(fullWavData, "audio_" + System.currentTimeMillis() + ".wav");
+                            uploadWavToDocker(fullWavData, "audio_" + System.currentTimeMillis() + ".wav");
 
                             /*try {
                                 String resultado = VoskRecognition.reconocer(context, audioChunk);
@@ -251,7 +252,7 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
     public void uploadWavToAzure(byte[] wavData, String fileName) {
         new Thread(() -> {
             try {
-                HttpURLConnection connection = getHttpURLConnection(wavData, fileName);
+                HttpURLConnection connection = getHttpURLConnectionAzure(wavData, fileName);
 
                 try (OutputStream os = connection.getOutputStream()) {
                     os.write(wavData);
@@ -271,7 +272,46 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
         }).start();
     }
 
-    private static HttpURLConnection getHttpURLConnection(byte[] wavData, String nombre) throws IOException {
+    public void uploadWavToDocker(byte[] wavData, String fileName) {
+        new Thread(() -> {
+            try {
+                HttpURLConnection connection = getHttpURLConnection(wavData, fileName);
+
+                int responseCode = connection.getResponseCode();
+
+                InputStream inputStream;
+                if (responseCode >= 200 && responseCode < 300) {
+                    inputStream = connection.getInputStream();
+                } else {
+                    inputStream = connection.getErrorStream();
+                }
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                StringBuilder response = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+
+                reader.close();
+
+                if (responseCode == 200) {
+                    Log.d("ServerUpload", "✅ Respuesta servidor: " + response.toString());
+                } else {
+                    Log.e("ServerUpload", "❌ Error servidor (" + responseCode + "): " + response.toString());
+                }
+
+                connection.disconnect();
+
+            } catch (Exception e) {
+                Log.e("ServerUpload", "❌ Error: " + e.getMessage(), e);
+            }
+        }).start();
+    }
+
+
+    private static HttpURLConnection getHttpURLConnectionAzure(byte[] wavData, String nombre) throws IOException {
         URL url = new URL("https://guardarcanciones.blob.core.windows.net/musica/"+ nombre +"?sp=racw&st=2025-05-26T10:45:51Z&se=2025-05-26T18:45:51Z&spr=https&sv=2024-11-04&sr=c&sig=dftf2rX2u3zz3dFFrC8%2BrCD4txCSt8gE7r2vyP8067U%3D"); // debe ser completo, incluyendo ?sig=...
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
@@ -282,6 +322,38 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
         connection.setFixedLengthStreamingMode(wavData.length);
         return connection;
     }
+
+
+    private static HttpURLConnection getHttpURLConnection(byte[] wavData, String nombre) throws IOException {
+
+        String boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+        URL url = new URL("http://192.168.50.245:10000/upload"); // ← ahora es /upload
+
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setDoOutput(true);
+        connection.setDoInput(true);
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+        DataOutputStream request = new DataOutputStream(connection.getOutputStream());
+
+        // Inicio del multipart
+        request.writeBytes("--" + boundary + "\r\n");
+        request.writeBytes("Content-Disposition: form-data; name=\"audio\"; filename=\"" + nombre + "\"\r\n");
+        request.writeBytes("Content-Type: audio/wav\r\n\r\n");
+
+        request.write(wavData);
+
+        request.writeBytes("\r\n");
+        request.writeBytes("--" + boundary + "--\r\n");
+
+        request.flush();
+        request.close();
+
+        return connection;
+    }
+
+
 
     public static byte[] generateWavFile(byte[] rawAudioData, int sampleRate, int channels, int bitsPerSample) {
         int byteRate = sampleRate * channels * bitsPerSample / 8;
