@@ -146,14 +146,9 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
                             int bitsPerSample = 16;
 
                             byte[] fullWavData = generateWavFile(audioChunk, sampleRate, channels, bitsPerSample);
-                            uploadWavToDocker(fullWavData, "audio_" + System.currentTimeMillis() + ".wav");
+                            //uploadWavToDocker(fullWavData, "audio_" + System.currentTimeMillis() + ".wav");
+                            uploadWavToDockerLive(fullWavData, "audio_" + System.currentTimeMillis() + ".wav");
 
-                            /*try {
-                                String resultado = VoskRecognition.reconocer(context, audioChunk);
-                                Log.d("VOSK", "Texto: " + resultado);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }*/
 
                         }
                     }
@@ -310,6 +305,49 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
         }).start();
     }
 
+    public void uploadWavToDockerLive(byte[] wavData, String fileName) {
+        new Thread(() -> {
+            try {
+                HttpURLConnection connection = getHttpURLConnectionLive(wavData, fileName);
+
+                int responseCode = connection.getResponseCode();
+
+                InputStream inputStream;
+                if (responseCode >= 200 && responseCode < 300) {
+                    inputStream = connection.getInputStream();
+                } else {
+                    inputStream = connection.getErrorStream();
+                }
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                StringBuilder response = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+
+                reader.close();
+                connection.disconnect();
+
+                if (responseCode == 200) {
+                    Log.d("ServerLive", "✅ Respuesta servidor: " + response.toString());
+
+                    // Parse JSON y mostrar mensaje automático
+                    JSONObject json = new JSONObject(response.toString());
+                    String respuesta = json.getString("respuesta");
+                    Log.d("ServerLive", "💬 Robot dice: " + respuesta);
+
+                } else {
+                    Log.e("ServerLive", "❌ Error servidor (" + responseCode + "): " + response.toString());
+                }
+
+            } catch (Exception e) {
+                Log.e("ServerLive", "❌ Error: " + e.getMessage(), e);
+            }
+        }).start();
+    }
+
 
     private static HttpURLConnection getHttpURLConnectionAzure(byte[] wavData, String nombre) throws IOException {
         URL url = new URL("https://guardarcanciones.blob.core.windows.net/musica/"+ nombre +"?sp=racw&st=2025-05-26T10:45:51Z&se=2025-05-26T18:45:51Z&spr=https&sv=2024-11-04&sr=c&sig=dftf2rX2u3zz3dFFrC8%2BrCD4txCSt8gE7r2vyP8067U%3D"); // debe ser completo, incluyendo ?sig=...
@@ -338,6 +376,34 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
         DataOutputStream request = new DataOutputStream(connection.getOutputStream());
 
         // Inicio del multipart
+        request.writeBytes("--" + boundary + "\r\n");
+        request.writeBytes("Content-Disposition: form-data; name=\"audio\"; filename=\"" + nombre + "\"\r\n");
+        request.writeBytes("Content-Type: audio/wav\r\n\r\n");
+
+        request.write(wavData);
+
+        request.writeBytes("\r\n");
+        request.writeBytes("--" + boundary + "--\r\n");
+
+        request.flush();
+        request.close();
+
+        return connection;
+    }
+
+    private static HttpURLConnection getHttpURLConnectionLive(byte[] wavData, String nombre) throws IOException {
+        String boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+        URL url = new URL("http://192.168.50.245:10000/diarize_live"); // NUEVO endpoint
+
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setDoOutput(true);
+        connection.setDoInput(true);
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+        DataOutputStream request = new DataOutputStream(connection.getOutputStream());
+
+        // multipart
         request.writeBytes("--" + boundary + "\r\n");
         request.writeBytes("Content-Disposition: form-data; name=\"audio\"; filename=\"" + nombre + "\"\r\n");
         request.writeBytes("Content-Type: audio/wav\r\n\r\n");
