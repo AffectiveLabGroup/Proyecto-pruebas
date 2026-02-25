@@ -82,6 +82,10 @@ public class MainActivity extends TopBaseActivity {
         }
     }
 
+    private boolean reconocimientoActivo = false;
+    private boolean yaEnviado = false;
+    private static final int TIEMPO_ACTIVO_MS = 8000; // 8 segundos activo
+
 
 
 
@@ -157,15 +161,16 @@ public class MainActivity extends TopBaseActivity {
             }
         });
 
+        //TODO: ESCUCHA AUDIO Y RESPUESTA
         escuchawav.setOnClickListener(new View.OnClickListener() {
               @Override
               public void onClick(View v) {
-                  recognitionControl.audiowav();
-                  //voskRecognition.stopRecognition();
-                  speechControl.detener();
+                  Log.d("ServerLive", "PULSA BOTÓN");
+                  //recognitionControl.audiowav();
+                  recognitionControl.activarReconocimiento();
 
               }
-        });
+        });      
 
         mSocket.connect();
 

@@ -41,6 +41,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Objects;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -74,14 +75,19 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
 
     private final ByteArrayOutputStream audioBuffer = new ByteArrayOutputStream();
     private final Object lock = new Object();
-    private long lastSaveTime = System.currentTimeMillis();
-    private int audioFileCounter = 0;
-    private final int SAMPLE_RATE = 16000; // o el que uses
-    private final int CHANNELS = 1;
-    private final int BITS_PER_SAMPLE = 16;
-    private final int SAVE_INTERVAL_MS = 5000; // 5 segundos
+
+    private static final int SAMPLE_RATE = 8000;
+    private static final int CHANNELS = 1;
+    private static final int BYTES_PER_SAMPLE = 2; // 16 bits
+    private static final int SEGUNDOS_MINIMOS = 5;
+
+    private static final int MIN_BUFFER_SIZE =
+            SAMPLE_RATE * CHANNELS * BYTES_PER_SAMPLE * SEGUNDOS_MINIMOS;
 
     private VoskRecognition voskRecognition;
+    private boolean reconocimientoActivo = false;
+    private boolean yaEnviado = false;
+    private static final int TIEMPO_ACTIVO_MS = 8000; // 8 segundos activo
 
 
 
@@ -92,7 +98,7 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
         this.voskRecognition = voskRecognition;
         this.tvMedia = tvMedia;
         this.tvMedia.setSurfaceTextureListener(this);
-        initListener();
+        audiowav();
     }
 
     /***********************************************************************************************
@@ -122,6 +128,11 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
 
             @Override
             public void getAudioStream(byte[] bytes) {
+
+                if (!reconocimientoActivo || yaEnviado) {
+                    return;
+                }
+
                 if (bytes == null || bytes.length == 0) {
                     Log.e("AudioDebug", "❌ audioData está vacío o es nulo.");
                     return;
@@ -129,33 +140,82 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
 
                 new Thread(() -> {
                     synchronized (lock) {
+
                         try {
                             audioBuffer.write(bytes);
                         } catch (IOException e) {
                             Log.e("AudioDebug", "Error escribiendo en el buffer: " + e.getMessage());
+                            return;
                         }
 
-                        long now = System.currentTimeMillis();
-                        if (now - lastSaveTime >= SAVE_INTERVAL_MS) {
-                            byte[] audioChunk = audioBuffer.toByteArray(); // copia actual del buffer
-                            audioBuffer.reset(); // vacía para siguiente chunk
-                            lastSaveTime = now;
+                        Log.d("ServerLive", "VAMOS A RECONOCER");
 
-                            int sampleRate = 8000; // o el que uses realmente
-                            int channels = 1; // mono
-                            int bitsPerSample = 16;
+                        // 🔥 Solo enviamos cuando tengamos mínimo 5 segundos reales
+                        if (audioBuffer.size() >= MIN_BUFFER_SIZE) {
 
-                            byte[] fullWavData = generateWavFile(audioChunk, sampleRate, channels, bitsPerSample);
-                            //uploadWavToDocker(fullWavData, "audio_" + System.currentTimeMillis() + ".wav");
-                            uploadWavToDockerLive(fullWavData, "audio_" + System.currentTimeMillis() + ".wav");
+                            byte[] fullBuffer = audioBuffer.toByteArray();
 
+                            // Tomamos solo los primeros 5 segundos
+                            byte[] audioChunk = Arrays.copyOfRange(
+                                    fullBuffer,
+                                    0,
+                                    MIN_BUFFER_SIZE
+                            );
 
+                            // Conservamos el resto para siguiente ventana (stream continuo)
+                            byte[] remaining = Arrays.copyOfRange(
+                                    fullBuffer,
+                                    MIN_BUFFER_SIZE,
+                                    fullBuffer.length
+                            );
+
+                            audioBuffer.reset();
+
+                            try {
+                                audioBuffer.write(remaining);
+                            } catch (IOException e) {
+                                Log.e("AudioDebug", "Error reescribiendo buffer: " + e.getMessage());
+                            }
+
+                            byte[] fullWavData = generateWavFile(
+                                    audioChunk,
+                                    SAMPLE_RATE,
+                                    CHANNELS,
+                                    16
+                            );
+
+                            yaEnviado = true;
+                            reconocimientoActivo = false;
+
+                            Log.d("ServerLive", "RECONOCIMIENTO UPLOAD");
+                            uploadWavToDockerLive(
+                                    fullWavData,
+                                    "audio_" + System.currentTimeMillis() + ".wav"
+                            );
                         }
                     }
                 }).start();
             }
+
         });
     }
+
+    public void activarReconocimiento() {
+
+        reconocimientoActivo = true;
+        yaEnviado = false;
+        audioBuffer.reset();
+        Log.d("ServerLive", "🎤 Reconocimiento ACTIVADO");
+
+        audiowav();
+
+        // Se apagará solo después de X segundos
+        handler.postDelayed(() -> {
+            reconocimientoActivo = false;
+            Log.d("ServerLive", "🛑 Reconocimiento DESACTIVADO");
+        }, TIEMPO_ACTIVO_MS);
+    }
+
     public void startDeteccionRuido() {
         mediaManager.setMediaListener(new MediaStreamListener() {
             @Override
@@ -308,6 +368,7 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
     public void uploadWavToDockerLive(byte[] wavData, String fileName) {
         new Thread(() -> {
             try {
+                Log.d("ServerLive", "UPLOAD DOCKER LIVE");
                 HttpURLConnection connection = getHttpURLConnectionLive(wavData, fileName);
 
                 int responseCode = connection.getResponseCode();
@@ -337,6 +398,8 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
                     JSONObject json = new JSONObject(response.toString());
                     String respuesta = json.getString("respuesta");
                     Log.d("ServerLive", "💬 Robot dice: " + respuesta);
+
+                    speechControl.hablar(respuesta);
 
                 } else {
                     Log.e("ServerLive", "❌ Error servidor (" + responseCode + "): " + response.toString());
@@ -392,6 +455,7 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
     }
 
     private static HttpURLConnection getHttpURLConnectionLive(byte[] wavData, String nombre) throws IOException {
+        Log.d("ServerLive", "GET URL ");
         String boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
         URL url = new URL("http://192.168.50.245:10000/diarize_live"); // NUEVO endpoint
 
@@ -590,7 +654,6 @@ public class RecognitionControl implements TextureView.SurfaceTextureListener{
      * Programa el reconocimiento para que se ejecute cada 15 segundos
      */
     // Activación del reconocimiento
-    private boolean reconocimientoActivo = false;
     // Programación del reconocimiento cada 60 segundos
     private long intervaloReconocimiento = 60000;
     private Handler recognitionHandler = new Handler(Looper.getMainLooper());
