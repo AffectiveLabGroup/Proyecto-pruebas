@@ -5,166 +5,37 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    tools:context=".MainActivity">
+    tools:context=".MainActivityVoces">
 
-
-
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/ledOn"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="leds on" />
-
-        <Button
-            android:id="@+id/ledOff"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="leds off" />
-
-        <Button
-            android:id="@+id/headLeft"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="turn head relative left" />
-
-        <Button
-            android:id="@+id/headRight"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="turn head relative right" />
-        <Button
-            android:id="@+id/headDown"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="turn head relative down" />
-
-        <Button
-            android:id="@+id/headUp"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="turn head relative up" />
-        <Button
-            android:id="@+id/headCenter"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="reset head to center" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/buttonSayHi"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="Speech" />
-
-        <Button
-            android:id="@+id/buttonWheelForward"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="Girar" />
-
-        <Button
-            android:id="@+id/setEmotion"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="See Sanbot's  mood" />
-
-        <Button
-            android:id="@+id/media"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_weight="1"
-            android:text="Media" />
-
-    </LinearLayout>
-
-
-    <EditText
-        android:id="@+id/messageEditText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:padding="16dp"
-        android:hint="Escribe tu mensaje"
-        android:inputType="text" />
 
     <Button
-        android:id="@+id/sendButton"
+        android:id="@+id/btnModoStream"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Enviar mensaje" />
+        android:text="STREAM" />
+
+
+    <Button
+        android:id="@+id/btnModoFoto"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="FOTO" />
+
 
     <TextView
-        android:id="@+id/receivedMessageTextView"
+        android:id="@+id/tvEstado"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Mensajes recibidos..."
+        android:text="Emoción recibida..."
         android:paddingTop="20dp" />
-
-
-
-
-    <Button
-        android:id="@+id/escuchar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Escuchar" />
-
-    <TextView
-        android:id="@+id/textoreconocido"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Texto reconocido..."
-        android:paddingTop="20dp" />
-
-
-    <Button
-        android:id="@+id/decirfrase"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Decir frase" />
-
-    <Button
-        android:id="@+id/wav"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="ESCUCHA WAV" />
 
     <TextureView
         android:id="@+id/tv_media"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:alpha="0"/>
+        android:alpha="1"/>
+
+
 
 
 </android.support.v7.widget.LinearLayoutCompat>
